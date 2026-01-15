@@ -1,0 +1,116 @@
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart';
+
+class Produtos {
+  int? id;
+  String nome;
+  int codigo;
+  String detanhes;
+
+  Produtos({
+    this.id, // ele aponta para uma variavel que pode ser nula que esta com o nome de id
+    required this.nome, // ele obriga para ele colocar o nome da produto
+    required this.codigo, // ele obriga para colocar um codigo
+    required this.detanhes, // ele obriga para colocar os detalhes
+  });
+
+  // agora vamos mapear os dados para o banco de dados que usamos o map.
+
+  Map<String, dynamic> toMap() {
+    return {'id': id, 'nome': nome, 'codigo': codigo, 'detanhes': detanhes};
+  }
+}
+
+// classe para criar um banco de dados usando sqflite
+class DatabaseHelper {
+  // instancias a classe
+  static final DatabaseHelper _instance = DatabaseHelper._internal();
+
+  // ele criar uma fabrica de construção para criar varios metodos para acessar a classe
+  factory DatabaseHelper() => _instance;
+  // o construtor interno
+  DatabaseHelper._internal();
+  // criar uma variavel privada para armazenar o banco de dados.
+  Database? _db;
+
+  //get para acessar o banco de dados
+  Future<Database> get db async {
+    // se ele ja foi inicializado.
+    if (_db != null) return _db!;
+    // caso contrario ele inicializa o banco de dados
+    _db = await _initDb();
+    return _db!;
+  }
+
+  // o metodo para criar o banco de dados
+  Future<Database> _initDb() async {
+    final path = join(await getDatabasesPath(), 'produtos.db');
+    // agora vamos abrir o banco de dados
+    return await openDatabase(path, version: 1, onCreate: _onCreate);
+  }
+
+  // metodo para criar o DDL
+  Future<void> _onCreate(Database db, int version) async {
+    await db.execute('''
+      CREATE TABLE produtos( 
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nome TEXT NOT NULL,
+      codigo INTEGER NOT NULL,
+      detanhes TEXT 
+      );
+''');
+  }
+
+  Future<List<Produtos>> getProdutos() async {
+    // declara o nosso Cleinte para o Bando de Dados
+    final dbClient = await db;
+    // ele retorna o banco de dados
+    final List<Map<String, dynamic>> maps = await dbClient.query('produtos');
+    // ele converte os valores do Map do Bando de dados em um Objeto
+    return List.generate(maps.length, (i) {
+      return Produtos(
+        id: maps[i]['id'],
+        nome: maps[i]['nome'],
+        codigo: maps[i]['codigo'],
+        detanhes: maps[i]['detanhes'],
+      );
+    });
+  }
+
+  // insere os novos Produtos do Banco de dados
+  Future<int> insertproduto(Produtos produto) async {
+    final dbClient = await db;
+    return await dbClient.insert('produtos', produto.toMap());
+  }
+
+  // atualiza os Produtos do Banco de dados
+  Future<int> updateProduto(Produtos produtos) async {
+    final bdCrient = await db;
+    return await bdCrient.update(
+      'produtos', // nova tabela
+      produtos.toMap(), // novos dados
+      where: 'id=?',
+      whereArgs: [produtos.id], // argumento da condiçãi
+    );
+  }
+
+  Future<int> DeletProduto(Produtos produto) async {
+    final bdCrient = await db;
+    return await bdCrient.delete(
+      'produtos', // nova tabela
+      where: 'id=?', // argumento da condição
+      whereArgs: [produto.id], // argumento da condição
+    );
+  }
+
+  // veificar quantos Produtos tem no banco de dados
+  Future<bool> codigoExiste(int code) async {
+    final dbCrient = await db;
+    final resultado = await dbCrient.query(
+      'produtos',
+      where: 'codigo=?',
+      whereArgs: [code],
+    );
+    return resultado.isNotEmpty;
+  }
+}
